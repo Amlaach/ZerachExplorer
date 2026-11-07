@@ -30,6 +30,7 @@ internal class TabContentViewModel : ViewModel, IDisposable
 
     private readonly IPathPolicy pathPolicy;
     private readonly IDriveEjectService driveEjectService;
+    private readonly IConfigurationService configurationService;
     private readonly object scanLock = new();
     private CancellationTokenSource currentScanCts;
     private long currentScanId;
@@ -113,6 +114,7 @@ internal class TabContentViewModel : ViewModel, IDisposable
     public ICommand BackHome { get; }
     public ICommand ResetOtzariaCmd { get; }
     public ICommand OpenAboutCmd { get; }
+    public ICommand OpenAdminCmd { get; }
     public ICommand CopyCmd { get; }
     public ICommand CutCmd { get; }
     public ICommand PasteCmd { get; }
@@ -123,10 +125,11 @@ internal class TabContentViewModel : ViewModel, IDisposable
 
     #region Constructor & Disposal
 
-    public TabContentViewModel(IPathPolicy pathPolicy = null, IDriveEjectService driveEjectService = null)
+    public TabContentViewModel(IPathPolicy pathPolicy = null, IDriveEjectService driveEjectService = null, IConfigurationService configurationService = null)
     {
         this.pathPolicy = pathPolicy ?? App.Container?.GetService<IPathPolicy>() ?? new PathPolicy();
         this.driveEjectService = driveEjectService ?? App.Container?.GetService<IDriveEjectService>() ?? new DriveEjectService(this.pathPolicy);
+        this.configurationService = configurationService ?? App.Container?.GetService<IConfigurationService>() ?? new ConfigurationService();
 
         OpenCmd = new ActionCommand(OnOpenCmdExecuted);
         DeleteCmd = new ActionCommand(OnDeletePath, CanDeleteExecute);
@@ -136,6 +139,7 @@ internal class TabContentViewModel : ViewModel, IDisposable
         CalculateFolderSizeCmd = new ActionCommand(OnCalculateFolderSizeExecuted);
         ResetOtzariaCmd = new ActionCommand(OnResetOtzariaCmdExecuted);
         OpenAboutCmd = new ActionCommand(OnOpenAboutCmdExecuted);
+        OpenAdminCmd = new ActionCommand(OnOpenAdminCmdExecuted);
         CopyCmd = new ActionCommand(OnCopyCmdExecuted, CanCopyExecute);
         CutCmd = new ActionCommand(OnCutCmdExecuted, CanCutExecute);
         PasteCmd = new ActionCommand(OnPasteCmdExecuted, CanPasteExecute);
@@ -159,22 +163,28 @@ internal class TabContentViewModel : ViewModel, IDisposable
 
     #region Command State Evaluation (CanExecute)
 
-    private bool CanCopyExecute(object p) => HasSelectedOrCurrentItem(p);
+    private bool CanCopyExecute(object p) => (pathPolicy?.Permissions?.CanCopyFrom ?? true) && HasSelectedOrCurrentItem(p);
 
-    private bool CanCutExecute(object p) => HasSelectedOrCurrentItem(p);
+    private bool CanCutExecute(object p) => (pathPolicy?.Permissions?.CanCopyFrom ?? true) && (pathPolicy?.Permissions?.CanDelete ?? true) && HasSelectedOrCurrentItem(p);
 
     private bool CanPasteExecute(object p)
     {
+        if (pathPolicy?.Permissions != null && !pathPolicy.Permissions.CanCopyTo)
+            return false;
+
         if (string.IsNullOrEmpty(TabPath) || !Directory.Exists(TabPath))
             return false;
 
         return HasClipboardData();
     }
 
-    private bool CanDeleteExecute(object p) => HasSelectedOrCurrentItem(p);
+    private bool CanDeleteExecute(object p) => (pathPolicy?.Permissions?.CanDelete ?? true) && HasSelectedOrCurrentItem(p);
 
     private bool CanRenameExecute(object p)
     {
+        if (pathPolicy?.Permissions != null && !pathPolicy.Permissions.CanRename)
+            return false;
+
         if (p != null) return true;
         if (selectedFileSystemObjects.Count == 1) return true;
         return selectedFileSystemObjects.Count == 0 && CurrentFileSystemObject != null && !string.IsNullOrEmpty(CurrentFileSystemObject.Path);
@@ -182,6 +192,9 @@ internal class TabContentViewModel : ViewModel, IDisposable
 
     private bool CanCreateDirectoryExecute(object p)
     {
+        if (pathPolicy?.Permissions != null && !pathPolicy.Permissions.CanCreateDirectory)
+            return false;
+
         return !string.IsNullOrEmpty(TabPath) && Directory.Exists(TabPath);
     }
 
@@ -1116,6 +1129,30 @@ internal class TabContentViewModel : ViewModel, IDisposable
     {
         var aboutWindow = new about();
         aboutWindow.ShowDialog();
+    }
+
+    private void OnOpenAdminCmdExecuted(object p)
+    {
+        var authDialog = new AdminPasswordDialog(configurationService);
+        if (Application.Current?.MainWindow != null)
+        {
+            authDialog.Owner = Application.Current.MainWindow;
+        }
+
+        if (authDialog.ShowDialog() == true && authDialog.IsAuthenticated)
+        {
+            var adminWindow = new AdminSettingsWindow(configurationService, pathPolicy);
+            if (Application.Current?.MainWindow != null)
+            {
+                adminWindow.Owner = Application.Current.MainWindow;
+            }
+
+            if (adminWindow.ShowDialog() == true)
+            {
+                InvalidateCommandStates();
+                OpenCmd.Execute(TabPath);
+            }
+        }
     }
 
     #endregion

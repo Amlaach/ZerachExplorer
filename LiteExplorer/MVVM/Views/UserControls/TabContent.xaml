@@ -17,6 +17,7 @@
         <KeyBinding Command="{Binding CreateDirectoryCmd}" Modifiers="Ctrl+Shift" Key="N" />
         <KeyBinding Command="{Binding DeleteCmd}" Key="Delete" />
         <KeyBinding Command="{Binding RenameCmd}" CommandParameter="{Binding CurrentFileSystemObject.Path}" Key="F2" />
+        <KeyBinding Command="{Binding OpenAdminCmd}" Modifiers="Ctrl+Shift" Key="A" />
     </UserControl.InputBindings>
 
     <Grid>
@@ -107,13 +108,19 @@
                                ToolTip="הוצאה בטוחה של כונן נשלף" />
                 </StackPanel>
 
-                <ui:Button DockPanel.Dock="Left"
-                           Command="{Binding OpenAboutCmd}"
-                           CommandParameter="{Binding TabPath}"
-                           Icon="Info24"
-                           Width="38"
-                           Padding="0"
-                           ToolTip="אודות והגדרות" />
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                    <ui:Button Command="{Binding OpenAdminCmd}"
+                               Icon="Settings24"
+                               Width="38"
+                               Padding="0"
+                               ToolTip="הגדרות מנהל מערכת (Ctrl+Shift+A)" />
+                    <ui:Button Command="{Binding OpenAboutCmd}"
+                               CommandParameter="{Binding TabPath}"
+                               Icon="Info24"
+                               Width="38"
+                               Padding="0"
+                               ToolTip="אודות" />
+                </StackPanel>
             </DockPanel>
         </Border>
 
