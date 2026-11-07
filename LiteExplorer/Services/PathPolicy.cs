@@ -417,7 +417,7 @@ public class PathPolicy : IPathPolicy
         }
         catch
         {
-            return true;
+            return false;
         }
         return false;
     }
@@ -429,7 +429,7 @@ public class PathPolicy : IPathPolicy
             var dir = new DirectoryInfo(path);
             while (dir != null && dir.Parent != null)
             {
-                if ((dir.Attributes & (FileAttributes.Hidden | FileAttributes.System)) != 0)
+                if (dir.Exists && (dir.Attributes & (FileAttributes.Hidden | FileAttributes.System)) != 0)
                 {
                     return true;
                 }
@@ -438,7 +438,7 @@ public class PathPolicy : IPathPolicy
         }
         catch
         {
-            return true;
+            return false;
         }
         return false;
     }

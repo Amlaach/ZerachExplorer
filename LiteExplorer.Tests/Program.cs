@@ -185,6 +185,110 @@ public class Program
             }
         }
 
+        // Stage 3 - Section 4.1 & SecurityHelper: Password hashing & verification
+        SecurityHelper.HashPassword("TestSecretPassword!1", out string hash1, out string salt1);
+        Assert(!string.IsNullOrEmpty(hash1) && !string.IsNullOrEmpty(salt1), "SecurityHelper creates valid hash and salt");
+        Assert(SecurityHelper.VerifyPassword("TestSecretPassword!1", hash1, salt1), "SecurityHelper verifies correct password");
+        Assert(!SecurityHelper.VerifyPassword("WrongPassword", hash1, salt1), "SecurityHelper rejects incorrect password");
+
+        // Stage 3 - Section 4.1: ConfigurationService persistence and round-trip
+        string tempConfigPath = Path.Combine(Path.GetTempPath(), "LiteExplorer_ConfigTest_" + Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            var configService = new ConfigurationService(tempConfigPath);
+            var loadedConfig = configService.Load();
+            Assert(loadedConfig != null, "ConfigurationService loads default configuration when file does not exist");
+            Assert(configService.VerifyPassword("admin123"), "Default admin password verifies successfully");
+
+            loadedConfig.Profile = KioskProfile.ReadOnly;
+            loadedConfig.AllowedExtensions = new System.Collections.Generic.List<string> { ".docx", ".pdf" };
+            loadedConfig.AllowedDriveRoots = new System.Collections.Generic.List<string> { @"E:\" };
+            loadedConfig.Permissions = PathPermissions.CreateReadOnly();
+
+            bool saveSuccess = configService.Save(loadedConfig, out string saveError);
+            Assert(saveSuccess && string.IsNullOrEmpty(saveError), "ConfigurationService saves configuration successfully");
+
+            var secondConfigService = new ConfigurationService(tempConfigPath);
+            var reloadedConfig = secondConfigService.Load();
+            Assert(reloadedConfig.Profile == KioskProfile.ReadOnly, "Configuration persistence retains Profile");
+            Assert(reloadedConfig.AllowedExtensions.Contains(".docx") && !reloadedConfig.AllowedExtensions.Contains(".xlsx"), "Configuration persistence retains custom extensions");
+            Assert(reloadedConfig.Permissions.CanCopyTo == false && reloadedConfig.Permissions.CanDelete == false, "Configuration persistence retains ReadOnly permissions");
+
+            // Password change
+            secondConfigService.ChangePassword("NewAdminPass456");
+            Assert(secondConfigService.VerifyPassword("NewAdminPass456"), "ConfigurationService verifies updated password");
+            Assert(!secondConfigService.VerifyPassword("admin123"), "ConfigurationService rejects old password after update");
+        }
+        finally
+        {
+            if (File.Exists(tempConfigPath))
+            {
+                try { File.Delete(tempConfigPath); } catch { }
+            }
+        }
+
+        // Stage 3 - Section 4.3: Read-Only Kiosk Profile policy enforcement
+        var readOnlyPolicy = new PathPolicy();
+        readOnlyPolicy.AllowedDriveRoots.Add(@"D:\");
+        readOnlyPolicy.Profile = KioskProfile.ReadOnly;
+        readOnlyPolicy.Permissions = PathPermissions.CreateReadOnly();
+
+        Assert(!readOnlyPolicy.CanDelete(@"D:\docs\file.docx", out _), "ReadOnly profile blocks file deletion");
+        Assert(!readOnlyPolicy.CanRename(@"D:\docs\file.docx", @"D:\docs\renamed.docx", out _), "ReadOnly profile blocks file renaming");
+        Assert(!readOnlyPolicy.CanCreateDirectory(@"D:\docs", "NewDir", out _), "ReadOnly profile blocks directory creation");
+        Assert(!readOnlyPolicy.CanCopyFile(@"D:\docs\file.docx", @"D:\other", out _), "ReadOnly profile blocks copying file (CanCopyTo = false)");
+        Assert(!readOnlyPolicy.CanMoveFile(@"D:\docs\file.docx", @"D:\other", out _), "ReadOnly profile blocks moving file");
+        Assert(readOnlyPolicy.CanOpenFile(@"D:\docs\file.docx", out _), "ReadOnly profile allows opening permitted document");
+        Assert(readOnlyPolicy.CanNavigate(@"D:\docs", out _), "ReadOnly profile allows navigating permitted directory");
+
+        // Stage 3 - Section 4.3: Controlled Workstation Profile policy enforcement
+        var controlledPolicy = new PathPolicy();
+        controlledPolicy.Profile = KioskProfile.Controlled;
+        controlledPolicy.Permissions = PathPermissions.CreateControlled();
+        controlledPolicy.AllowedExplicitDirectories.Add(@"D:\PermittedFolder");
+
+        Assert(controlledPolicy.CanNavigate(@"D:\PermittedFolder", out _), "Controlled profile allows navigation within explicit allowed directory");
+        Assert(controlledPolicy.CanNavigate(@"D:\PermittedFolder\SubFolder", out _), "Controlled profile allows navigation within nested allowed directory");
+        Assert(!controlledPolicy.CanNavigate(@"D:\UnauthorizedFolder", out _), "Controlled profile blocks navigation outside explicit allowed directories");
+
+        // Stage 3 - Section 4.2 & ConfigurationService.ApplyToPolicy
+        var configuredPolicy = new PathPolicy();
+        var testConfig = new AppConfiguration
+        {
+            Profile = KioskProfile.Custom,
+            Permissions = new PathPermissions
+            {
+                CanList = false,
+                CanOpen = false,
+                CanCopyFrom = false,
+                CanCopyTo = false,
+                CanRename = false,
+                CanDelete = false,
+                CanCreateDirectory = false
+            },
+            AllowedExtensions = new System.Collections.Generic.List<string> { ".pdf" }
+        };
+
+        string dummyConfigPath = Path.Combine(Path.GetTempPath(), "dummy_config_" + Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            var configForPolicy = new ConfigurationService(dummyConfigPath);
+            configForPolicy.Save(testConfig, out _);
+            configForPolicy.ApplyToPolicy(configuredPolicy);
+
+            Assert(configuredPolicy.Profile == KioskProfile.Custom, "ApplyToPolicy sets custom profile");
+            Assert(!configuredPolicy.CanOpenFile(@"D:\file.pdf", out _), "ApplyToPolicy enforces CanOpen=false restriction");
+            Assert(!configuredPolicy.CanNavigate(@"D:\", out _), "ApplyToPolicy enforces CanList=false restriction");
+            Assert(configuredPolicy.AllowedExtensions.Count == 1 && configuredPolicy.AllowedExtensions.Contains(".pdf"), "ApplyToPolicy updates allowed extensions");
+        }
+        finally
+        {
+            if (File.Exists(dummyConfigPath))
+            {
+                try { File.Delete(dummyConfigPath); } catch { }
+            }
+        }
+
         Console.WriteLine($"\nTest Results: {passed} passed, {failed} failed.");
         return failed == 0 ? 0 : 1;
     }
