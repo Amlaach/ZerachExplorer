@@ -2,6 +2,19 @@
 
 All notable changes to ZerachExplorer will be documented in this file.
 
+## [1.6.0] - Stage 3: Admin Profiles & Policy Configuration Engine
+
+### Features & Security (תכונות חדשות ואבטחה)
+- **Kiosk Operational Profiles (פרופילי עמדה מובנים):** Introduced built-in presets: Standard Documents Kiosk, Read-Only Kiosk (blocks writing, deleting, renaming, and folder creation), Controlled Workstation (restricts operations to explicitly allowed directories), and Custom profiles.
+- **Granular Action Permissions (מודל הרשאות פעולה מפורט):** Added granular permission flags (`CanList`, `CanOpen`, `CanCopyFrom`, `CanCopyTo`, `CanRename`, `CanDelete`, `CanCreateDirectory`) enforced throughout `PathPolicy` and reflected dynamically in the UI command bar (`CanExecute`).
+- **Protected Configuration Service (שירות תצורה מוגן ב-ProgramData):** Implemented `IConfigurationService` managing JSON configuration under `%ProgramData%\ZerachExplorer\config.json` with fallback handling and secure ACL preservation for kiosk environments.
+- **PBKDF2 Password Security (אבטחת סיסמה בהצפנת תקן):** Added `SecurityHelper` utilizing PBKDF2 (SHA-256 with 10,000 iterations and cryptographic salts) to secure administrator access.
+- **Admin Password Authentication Dialog (דיאלוג אימות סיסמת מנהל):** Created modern modal password prompt protecting administrative operations.
+- **Admin Settings Management Window (מסך ניהול והגדרות מנהל):** Added full-featured administration dialog accessible via toolbar and keyboard shortcut (`Ctrl+Shift+A`) allowing real-time editing of active profiles, permissions, allowed file extensions, explicit directories, and password changes.
+
+### Testing (בדיקות)
+- **Stage 3 Verification:** Added unit tests verifying password hashing and verification, configuration JSON persistence and round-trip, profile policy enforcement (ReadOnly, Controlled, Custom), and dynamic policy application.
+
 ## [1.5.1] - Tabs UX & Color Palette Improvements
 
 ### Features & UI (תכונות וממשק משתמש)
