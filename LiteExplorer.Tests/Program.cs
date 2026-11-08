@@ -178,12 +178,222 @@ public class Program
             Assert(wasCancelled, "Directory calculation honors cancellation token");
         }
         finally
+
         {
+
             if (Directory.Exists(tempDir))
+
             {
+
                 try { Directory.Delete(tempDir, true); } catch { }
+
             }
+
         }
+
+
+
+        // Stage 4 - Section 5.1: Breadcrumbs Navigation
+
+        var testVm = new TabContentViewModel(policy);
+
+        Assert(testVm.Breadcrumbs.Count == 1 && testVm.Breadcrumbs[0].Name == "בית", "Home path produces single 'בית' breadcrumb");
+
+
+
+        testVm.TabPath = @"D:\Docs\Projects";
+
+        Assert(testVm.Breadcrumbs.Count >= 3, "Nested path produces multiple breadcrumb segments");
+
+        Assert(testVm.Breadcrumbs[0].Name == "בית" && testVm.Breadcrumbs[0].Path == "", "First breadcrumb is always 'בית'");
+
+        Assert(testVm.Breadcrumbs.Last().IsLast, "Last breadcrumb segment has IsLast set to true");
+
+        Assert(testVm.Breadcrumbs.Last().Name == "Projects", "Last breadcrumb segment has correct folder name");
+
+
+
+        // Stage 4 - Section 5.2: Search & Quick Filtering
+
+        testVm.FileSystemObjects.Clear();
+
+        testVm.FileSystemObjects.Add(new FileSystemObject { Name = "Document1.docx", Size = 1000 });
+
+        testVm.FileSystemObjects.Add(new FileSystemObject { Name = "Invoice.pdf", Size = 2000 });
+
+        testVm.FileSystemObjects.Add(new FileSystemObject { Name = "Notes.txt", Size = 500 });
+
+
+
+        testVm.SearchText = "doc";
+
+        var filteredView = System.Windows.Data.CollectionViewSource.GetDefaultView(testVm.FileSystemObjects);
+
+        var visibleItems = filteredView.Cast<FileSystemObject>().ToList();
+
+        Assert(visibleItems.Count == 1 && visibleItems[0].Name == "Document1.docx", "Filter by 'doc' returns only Document1.docx");
+
+
+
+        testVm.SearchText = ".pdf";
+
+        visibleItems = filteredView.Cast<FileSystemObject>().ToList();
+
+        Assert(visibleItems.Count == 1 && visibleItems[0].Name == "Invoice.pdf", "Filter by extension '.pdf' returns only Invoice.pdf");
+
+
+
+        testVm.ClearSearchCmd.Execute(null);
+
+        visibleItems = filteredView.Cast<FileSystemObject>().ToList();
+
+        Assert(visibleItems.Count == 3, "Clear search restores full item visibility");
+
+
+
+        // Stage 4 - Section 5.3: Column Sorting & Comparer
+
+        var folderItem = new FileSystemObject { Name = "ZebraFolder", IsDirectory = true, Size = 0 };
+
+        var fileItemA = new FileSystemObject { Name = "AlphaFile.txt", IsDirectory = false, Size = 5000, RawLastWriteTime = DateTime.Now.AddDays(-1) };
+
+        var fileItemB = new FileSystemObject { Name = "BetaFile.txt", IsDirectory = false, Size = 1000, RawLastWriteTime = DateTime.Now };
+
+
+
+        var nameAscComparer = new FileSystemObjectComparer(SortColumn.Name, System.ComponentModel.ListSortDirection.Ascending);
+
+        Assert(nameAscComparer.Compare(folderItem, fileItemA) < 0, "Comparer keeps directory before file in Ascending order");
+
+
+
+        var nameDescComparer = new FileSystemObjectComparer(SortColumn.Name, System.ComponentModel.ListSortDirection.Descending);
+
+        Assert(nameDescComparer.Compare(folderItem, fileItemA) < 0, "Comparer keeps directory before file even in Descending order");
+
+
+
+        var sizeAscComparer = new FileSystemObjectComparer(SortColumn.Size, System.ComponentModel.ListSortDirection.Ascending);
+
+        Assert(sizeAscComparer.Compare(fileItemB, fileItemA) < 0, "Sort by size ascending orders smaller file first");
+
+
+
+        var dateDescComparer = new FileSystemObjectComparer(SortColumn.LastWriteTime, System.ComponentModel.ListSortDirection.Descending);
+
+        Assert(dateDescComparer.Compare(fileItemB, fileItemA) < 0, "Sort by date descending orders newer file first");
+
+
+
+        testVm.SortByColumn("Size");
+
+        Assert(testVm.CurrentSortColumn == SortColumn.Size && testVm.CurrentSortDirection == System.ComponentModel.ListSortDirection.Ascending, "SortByColumn sets Size Ascending");
+
+        testVm.SortByColumn("Size");
+
+        Assert(testVm.CurrentSortColumn == SortColumn.Size && testVm.CurrentSortDirection == System.ComponentModel.ListSortDirection.Descending, "Consecutive SortByColumn toggles direction to Descending");
+
+
+
+        // Stage 4 - Section 5.4: Device Notification Service
+
+        bool deviceEventTriggered = false;
+
+        EventHandler handler = (s, e) => { deviceEventTriggered = true; };
+
+        DeviceNotificationService.Instance.DeviceChanged += handler;
+
+        DeviceNotificationService.Instance.NotifyDeviceChanged();
+
+        DeviceNotificationService.Instance.DeviceChanged -= handler;
+
+        Assert(deviceEventTriggered, "DeviceNotificationService triggers DeviceChanged event");
+
+
+
+        // Stage 4 - Section 5.5: Quick Preview Model
+
+        var preview = new FilePreviewInfo();
+
+        Assert(preview.Type == PreviewType.None, "Default preview type is None");
+
+        Assert(!string.IsNullOrEmpty(preview.StatusMessage), "Default preview status message is set");
+
+
+
+        preview.FileName = "test.txt";
+
+        preview.TextContent = "Sample preview text content";
+
+        preview.Type = PreviewType.Text;
+
+        Assert(preview.Type == PreviewType.Text && preview.TextContent.StartsWith("Sample"), "FilePreviewInfo holds text preview data");
+
+
+
+        preview.Clear();
+
+        Assert(preview.Type == PreviewType.None && preview.TextContent == null, "Clear preview resets preview state");
+
+
+
+                // Stage 7 - Section 7.1: Audit Logging Service & Entry Models
+        string tempAuditPath = Path.Combine(Path.GetTempPath(), $"audit_test_{Guid.NewGuid():N}.log");
+        var auditService = new AuditService(tempAuditPath);
+        auditService.Log(AuditEventType.FileOpened, @"D:\Document.pdf", "Opened file", true);
+        auditService.Log(AuditEventType.SecurityBlocked, @"C:\Windows\System32", "System path blocked", false);
+
+        var recentEntries = auditService.GetRecentEntries(10);
+        Assert(recentEntries.Count == 2, "AuditService records and returns logged entries");
+        Assert(recentEntries[0].EventType == AuditEventType.SecurityBlocked && !recentEntries[0].Success, "Recent audit entry is newest blocked event");
+        Assert(recentEntries[1].EventType == AuditEventType.FileOpened && recentEntries[1].Success, "Prior audit entry is file opened event");
+
+        string formattedEntry = recentEntries[0].ToString();
+        var parsedEntry = AuditEntry.Parse(formattedEntry);
+        Assert(parsedEntry != null && parsedEntry.EventType == AuditEventType.SecurityBlocked && parsedEntry.Target == @"C:\Windows\System32", "AuditEntry parses formatted log line correctly");
+
+        auditService.ClearLogs();
+        Assert(auditService.GetRecentEntries(10).Count == 0, "ClearLogs wipes audit log entries");
+        if (File.Exists(tempAuditPath)) { try { File.Delete(tempAuditPath); } catch { } }
+
+        // Stage 7 - Section 7.2: Session Reset & Privacy Service
+        bool sessionResetFired = false;
+        EventHandler resetHandler = (s, e) => { sessionResetFired = true; };
+        SessionService.Instance.SessionReset += resetHandler;
+        SessionService.Instance.ResetSession();
+        SessionService.Instance.SessionReset -= resetHandler;
+        Assert(sessionResetFired, "SessionService raises SessionReset event upon reset");
+
+        // Stage 7 - Section 7.3: Kiosk Controller & Lockdown Exit Interception
+        var kiosk = new KioskController();
+        Assert(!kiosk.IsKioskModeEnabled, "Default kiosk mode is disabled");
+        Assert(!kiosk.PreventAppExit, "Default exit prevention is disabled");
+
+        var cancelArgsDefault = new System.ComponentModel.CancelEventArgs();
+        bool canCloseDefault = kiosk.HandleWindowClosing(null, cancelArgsDefault, () => true);
+        Assert(canCloseDefault && !cancelArgsDefault.Cancel, "HandleWindowClosing allows close when PreventAppExit is false");
+
+        kiosk.PreventAppExit = true;
+        var cancelArgsBlocked = new System.ComponentModel.CancelEventArgs();
+        bool canCloseFailedAuth = kiosk.HandleWindowClosing(null, cancelArgsBlocked, () => false);
+        Assert(!canCloseFailedAuth && cancelArgsBlocked.Cancel, "HandleWindowClosing blocks exit when authentication fails");
+
+        var cancelArgsAllowed = new System.ComponentModel.CancelEventArgs();
+        bool canClosePassedAuth = kiosk.HandleWindowClosing(null, cancelArgsAllowed, () => true);
+        Assert(canClosePassedAuth && !kiosk.PreventAppExit, "HandleWindowClosing allows exit and resets PreventAppExit on valid auth");
+
+        // Stage 7 - Section 7.4: ViewMode Toggling & Commands
+        Assert(testVm.CurrentViewMode == ViewMode.Details, "Default ViewMode is Details");
+        Assert(testVm.IsDetailsView && !testVm.IsTilesView, "IsDetailsView is true and IsTilesView is false by default");
+
+        testVm.ToggleViewModeCmd.Execute(null);
+        Assert(testVm.CurrentViewMode == ViewMode.Tiles, "ToggleViewModeCmd switches ViewMode to Tiles");
+        Assert(!testVm.IsDetailsView && testVm.IsTilesView, "IsTilesView is true and IsDetailsView is false after toggle");
+
+        testVm.ToggleViewModeCmd.Execute(null);
+        Assert(testVm.CurrentViewMode == ViewMode.Details, "Second toggle restores Details ViewMode");
+
+        testVm.Dispose();
 
         Console.WriteLine($"\nTest Results: {passed} passed, {failed} failed.");
         return failed == 0 ? 0 : 1;

@@ -2,6 +2,37 @@
 
 All notable changes to ZerachExplorer will be documented in this file.
 
+## [1.7.0] - Stage 7: Kiosk Lockdown, Session Privacy, Audit Logging & Grid/Tile Views
+
+### Features & Security (ϊλεπεϊ ηγωεϊ εΰαθηδ)
+- **Kiosk Lockdown & Exit Interception (ξφα πςιμϊ ςξγδ εδβπϊ ιφιΰδ):** Added KioskController managing borderless fullscreen mode and intercepting application exit requests (Closing event), requiring administrator password authentication when active.
+- **Audit & Activity Logging (ιεξο αιχεψϊ εξςχα τςεμεϊ):** Implemented AuditService with secure auto-rotating log storage (%ProgramData%\ZerachExplorer\audit.log) tracking file opens, copy/move/rename/delete operations, drive connections/ejections, and security violations.
+- **Session Reset & Privacy Wipe (ΰιτερ δτςμδ εδβπϊ τψθιεϊ):** Added SessionService to automatically clean temporary files, wipe OS and internal clipboards, and return navigation to home upon USB disconnection or manual reset button.
+- **Grid / Large Icons View Mode (ϊφεβϊ ψωϊ εΰιιχεπιν ξεβγμιν):** Added ViewMode (Details vs Tiles) allowing seamless switching between detailed column lists and 48x48 icon grids with ribbon toggle button and keyboard shortcut (Ctrl+Shift+V).
+- **Quick USB Detection Modal (ημεο ζιδει ξδιψ μ-USB):** Created QuickUsbDialog offering instant direct folder navigation upon removable media insertion.
+
+### Testing (αγιχεϊ)
+- **Stage 7 Verification:** Added automated unit tests verifying audit logging, log parsing, log rotation and clearing, session reset events, kiosk exit protection logic, and view mode switching (91 total passing tests).
+
+## [1.6.0] - Stage 4: UX, Navigation, Search, Column Sorting, Auto Refresh & Quick Preview
+
+### Features & UI (ΧªΧ›Χ•Χ Χ•Χª Χ•ΧΧΧ©Χ§ ΧΧ©ΧªΧΧ©)
+- **Interactive Breadcrumbs (Χ΅Χ¨Χ’Χ Χ¤Χ™Χ¨Χ•Χ¨Χ™ ΧΧ—Χ ΧΧ™Χ ΧΧ¨ΧΧ§ΧΧ™Χ‘Χ™):** Added breadcrumb navigation with clickable directory segments to quickly jump to parent folders, along with smooth toggle between breadcrumb chips and direct text editing.
+- **Instant Search & Filter (Χ—Χ™Χ¤Χ•Χ© Χ•Χ΅Χ™Χ Χ•Χ ΧΧ”Χ™Χ¨):** Implemented in-folder filtering by file name or extension with instant responsive filtering via CollectionViewSource and quick clear button.
+- **Multi-Column Sorting (ΧΧ™Χ•Χ ΧΧ¤Χ™ ΧΆΧΧ•Χ“Χ•Χª):** Transformed ListView into a modern GridView supporting column header clicks for Name, Date Modified, Type, and Size with ascending/descending toggle and custom directory-first ordering (FileSystemObjectComparer).
+- **Real-Time Auto Refresh (Χ¨ΧΆΧ Χ•Χ ΧΧ•ΧΧ•ΧΧΧ™ Χ‘Χ–ΧΧ ΧΧΧª):** Integrated debounced FileSystemWatcher to detect file system creations, modifications, and deletions in real-time, plus Windows WM_DEVICECHANGE detection via DeviceNotificationService to automatically refresh connected drives and safely handle unplugged USB devices.
+- **Sandboxed Quick Preview Pane (Χ—ΧΧ•Χ Χ™Χª ΧªΧ¦Χ•Χ’Χ” ΧΧ§Χ“Χ™ΧΧ” ΧΧ”Χ™Χ¨Χ” Χ•Χ‘ΧΧ•Χ—Χ”):** Added toggleable preview side-pane (toolbar button + Alt+P) supporting text files (.txt, .csv, .json, etc.), image files (.png, .jpg, .bmp, etc.) with frozen memory bitmaps, and rich document metadata cards without invoking external applications.
+- **Keyboard Shortcuts (Χ§Χ™Χ¦Χ•Χ¨Χ™ ΧΧ§ΧΧ“Χª ΧªΧ§Χ Χ™Χ™Χ):** Added and unified shortcuts for F5 (refresh), F2 (rename), Delete (delete), Alt+P (toggle preview), and Enter/Backspace for navigation.
+
+### Testing (Χ‘Χ“Χ™Χ§Χ•Χª)
+- **Stage 4 Verification:** Added automated unit tests verifying breadcrumb path generation, collection filtering, multi-column sorting comparisons, device notification events, and preview model integrity (75 total passing tests).
+
+## [1.5.1] - Tabs UX & Color Palette Improvements
+
+### Features & UI (ΧªΧ›Χ•Χ Χ•Χª Χ•ΧΧΧ©Χ§ ΧΧ©ΧªΧΧ©)
+- **Tab Close Button (ΧΧ™Χ§Χ΅ ΧΧ΅Χ’Χ™Χ¨Χª Χ›Χ¨ΧΧ™Χ΅Χ™Χ•Χª):** Added a close ('X') button to explorer tabs matching modern browser and Windows Explorer behaviors with proper RTL alignment, hover cursor, and graceful exit upon closing the last active tab.
+- **Color Palette Brightening (Χ”Χ‘Χ”Χ¨Χª Χ’Χ•Χ•Χ Χ™ Χ›ΧªΧ•Χ):** Brightened the dark rust-orange warning and danger palette in PercentToColor converter to clear, vibrant tones (RGB(255, 140, 20) and RGB(255, 185, 60)).
+
 ## [1.5.0] - Stage 2: File Operations & Device Management
 
 ### Features (ΧªΧ›Χ•Χ Χ•Χª Χ—Χ“Χ©Χ•Χª)
