@@ -77,7 +77,7 @@ public class Program
 
         // Restricted volume labels
         Assert(customPolicy.BlockedVolumeLabels.Contains("Otzar Hahochma"), "Blocked labels contain Otzar Hahochma");
-        Assert(customPolicy.BlockedVolumeLabels.Contains("׳׳•׳¦׳¨ ׳”׳—׳•׳›׳׳”"), "Blocked labels contain Hebrew label");
+        Assert(customPolicy.BlockedVolumeLabels.Contains("אוצר החוכמה"), "Blocked labels contain Hebrew label");
 
         // Allowed and disallowed extensions
         Assert(customPolicy.AllowedExtensions.Contains(".docx"), "Allowed extensions contain .docx");
@@ -301,7 +301,7 @@ public class Program
 
         var testVm = new TabContentViewModel(policy);
 
-        Assert(testVm.Breadcrumbs.Count == 1 && testVm.Breadcrumbs[0].Name == "׳‘׳™׳×", "Home path produces single '׳‘׳™׳×' breadcrumb");
+        Assert(testVm.Breadcrumbs.Count == 1 && testVm.Breadcrumbs[0].Name == "בית", "Home path produces single 'בית' breadcrumb");
 
 
 
@@ -309,7 +309,7 @@ public class Program
 
         Assert(testVm.Breadcrumbs.Count >= 3, "Nested path produces multiple breadcrumb segments");
 
-        Assert(testVm.Breadcrumbs[0].Name == "׳‘׳™׳×" && testVm.Breadcrumbs[0].Path == "", "First breadcrumb is always '׳‘׳™׳×'");
+        Assert(testVm.Breadcrumbs[0].Name == "בית" && testVm.Breadcrumbs[0].Path == "", "First breadcrumb is always 'בית'");
 
         Assert(testVm.Breadcrumbs.Last().IsLast, "Last breadcrumb segment has IsLast set to true");
 

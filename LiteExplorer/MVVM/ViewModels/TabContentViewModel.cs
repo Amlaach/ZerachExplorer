@@ -1904,7 +1904,7 @@ internal class TabContentViewModel : ViewModel, IDisposable
 
         {
 
-            Name = "׳‘׳™׳×",
+            Name = "בית",
 
             Path = string.Empty,
 
