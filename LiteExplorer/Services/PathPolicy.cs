@@ -409,6 +409,13 @@ public class PathPolicy : IPathPolicy
     {
         try
         {
+            var root = Path.GetPathRoot(path);
+            if (!string.IsNullOrEmpty(root) &&
+                string.Equals(EnsureTrailingSeparator(path), EnsureTrailingSeparator(root), StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
             if (File.Exists(path) || Directory.Exists(path))
             {
                 var attr = File.GetAttributes(path);
