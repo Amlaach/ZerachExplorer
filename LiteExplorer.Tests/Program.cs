@@ -503,6 +503,90 @@ public class Program
         Assert(Environment.Version.Major >= 8, ".NET Runtime is version 8 or higher");
         Assert(typeof(LiteExplorer.MVVM.ViewModels.Base.ViewModel).IsSubclassOf(typeof(CommunityToolkit.Mvvm.ComponentModel.ObservableObject)), "ViewModel inherits from CommunityToolkit.Mvvm ObservableObject");
 
+        // Additional Security, Encoding, Sorting, Audit & Configuration Edge-Case Tests
+        var advPolicy = new PathPolicy();
+        advPolicy.AllowedDriveRoots.Add(@"D:\");
+        advPolicy.SetAllowedExtensions(new[] { "TXT", " .Pdf ", "", "  ", ".docx" });
+        Assert(advPolicy.AllowedExtensions.Count == 3 && advPolicy.AllowedExtensions.Contains(".txt") && advPolicy.AllowedExtensions.Contains(".pdf"),
+            "SetAllowedExtensions normalizes dots, casing, whitespace and ignores blanks");
+        Assert(advPolicy.CanOpenFile(@"D:\Docs\REPORT.PDF", out _), "CanOpenFile allows mixed-case permitted extension");
+        Assert(!advPolicy.CanOpenFile(@"D:\Docs\report.pdf.exe", out _), "CanOpenFile blocks double extension ending in .exe");
+        Assert(!advPolicy.CanNavigate("", out _) && !advPolicy.CanNavigate("   ", out _), "CanNavigate rejects empty or whitespace path");
+        Assert(!advPolicy.CanOpenFile("", out _), "CanOpenFile rejects empty path");
+        Assert(!advPolicy.CanRename(@"D:\docs\file.docx", @"D:/docs/../../evil.docx", out _), "CanRename blocks forward-slash path traversal");
+        Assert(!advPolicy.CanCreateDirectory(@"D:\", "LPT1", out _), "CanCreateDirectory blocks reserved DOS name LPT1");
+        Assert(advPolicy.CanCopyFile(@"D:\src\file.docx", @"D:\dst", out _), "CanCopyFile allows permitted extension between allowed drive folders");
+        Assert(advPolicy.CanMoveFile(@"D:\src\file.docx", @"D:\dst", out _), "CanMoveFile allows permitted extension between allowed drive folders");
+
+        // UTF-8 Hebrew Breadcrumbs & Search Filtering
+        var hebrewVm = new TabContentViewModel(advPolicy);
+        hebrewVm.TabPath = @"D:\מסמכים\דוחות\שנתי";
+        Assert(hebrewVm.Breadcrumbs.Count >= 4 && hebrewVm.Breadcrumbs[^1].Name == "שנתי" && hebrewVm.Breadcrumbs[^2].Name == "דוחות",
+            "Hebrew nested path preserves UTF-8 breadcrumb segments");
+
+        hebrewVm.FileSystemObjects.Clear();
+        hebrewVm.FileSystemObjects.Add(new FileSystemObject { Name = "סיכום_שיעור.docx", Size = 1200 });
+        hebrewVm.FileSystemObjects.Add(new FileSystemObject { Name = "דוח_שנתי.pdf", Size = 2400 });
+        hebrewVm.SearchText = "שיעור";
+        var hebrewFiltered = System.Windows.Data.CollectionViewSource.GetDefaultView(hebrewVm.FileSystemObjects).Cast<FileSystemObject>().ToList();
+        Assert(hebrewFiltered.Count == 1 && hebrewFiltered[0].Name == "סיכום_שיעור.docx", "Hebrew search filter matches UTF-8 filename");
+        hebrewVm.Dispose();
+
+        // Additional Comparer & Permissions Clone Tests
+        var dateAscComparer = new FileSystemObjectComparer(SortColumn.LastWriteTime, System.ComponentModel.ListSortDirection.Ascending);
+        Assert(dateAscComparer.Compare(fileItemA, fileItemB) < 0, "Sort by date ascending orders older file first");
+        var typeAscComparer = new FileSystemObjectComparer(SortColumn.Type, System.ComponentModel.ListSortDirection.Ascending);
+        Assert(typeAscComparer.Compare(folderItem, fileItemA) < 0, "Sort by type keeps directory before file");
+
+        var originalPerms = PathPermissions.CreateReadOnly();
+        var clonedPerms = originalPerms.Clone();
+        clonedPerms.CanDelete = true;
+        Assert(!originalPerms.CanDelete && clonedPerms.CanDelete, "PathPermissions.Clone creates an independent copy");
+
+        // SecurityHelper Edge Cases
+        SecurityHelper.HashPassword("TestPass123", out string uniqueHash1, out string uniqueSalt1);
+        SecurityHelper.HashPassword("TestPass123", out string uniqueHash2, out string uniqueSalt2);
+        Assert(uniqueSalt1 != uniqueSalt2 && uniqueHash1 != uniqueHash2, "SecurityHelper generates unique cryptographic salt per hash");
+        Assert(!SecurityHelper.VerifyPassword("TestPass123", "", uniqueSalt1), "SecurityHelper rejects empty stored hash");
+        Assert(!SecurityHelper.VerifyPassword("TestPass123", "not-valid-base64!!!", uniqueSalt1), "SecurityHelper rejects malformed Base64 hash");
+
+        // AuditService Persistence & Parse Edge Cases
+        Assert(AuditEntry.Parse(null!) == null && AuditEntry.Parse("   ") == null && AuditEntry.Parse("corrupt-line")?.Target == string.Empty,
+            "AuditEntry.Parse safely handles null, whitespace, and malformed lines without throwing");
+        string persistAuditPath = Path.Combine(Path.GetTempPath(), $"audit_persist_{Guid.NewGuid():N}.log");
+        try
+        {
+            var writerAudit = new AuditService(persistAuditPath);
+            writerAudit.Log(AuditEventType.UsbConnected, @"E:\", "USB inserted", true);
+            writerAudit.Log(AuditEventType.FileCopied, @"E:\a.pdf", "Copied to D:", true);
+            writerAudit.Log(AuditEventType.SecurityBlocked, @"C:\Windows", "Blocked", false);
+            Assert(writerAudit.GetRecentEntries(2).Count == 2, "AuditService.GetRecentEntries respects requested count limit");
+
+            var readerAudit = new AuditService(persistAuditPath);
+            var diskEntries = readerAudit.GetRecentEntries(10);
+            Assert(diskEntries.Count == 3 && diskEntries[0].EventType == AuditEventType.SecurityBlocked,
+                "New AuditService instance reloads persisted log entries from disk");
+        }
+        finally
+        {
+            if (File.Exists(persistAuditPath)) { try { File.Delete(persistAuditPath); } catch { } }
+        }
+
+        // Corrupted Configuration Fallback Test
+        string corruptConfigPath = Path.Combine(Path.GetTempPath(), $"corrupt_config_{Guid.NewGuid():N}.json");
+        try
+        {
+            File.WriteAllText(corruptConfigPath, "{ invalid json !!!");
+            var corruptConfigSvc = new ConfigurationService(corruptConfigPath);
+            var fallbackCfg = corruptConfigSvc.Load();
+            Assert(fallbackCfg != null && fallbackCfg.Profile == KioskProfile.Standard,
+                "ConfigurationService falls back to Standard profile on corrupted JSON");
+        }
+        finally
+        {
+            if (File.Exists(corruptConfigPath)) { try { File.Delete(corruptConfigPath); } catch { } }
+        }
+
         Console.WriteLine($"\nTest Results: {passed} passed, {failed} failed.");
         return failed == 0 ? 0 : 1;
     }
