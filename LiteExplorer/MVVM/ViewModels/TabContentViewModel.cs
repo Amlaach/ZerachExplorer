@@ -219,6 +219,10 @@ internal class TabContentViewModel : ViewModel, IDisposable
 
     public ObservableCollection<FileSystemObject> FileSystemObjects { get; set; } = new();
 
+    public ObservableCollection<FileSystemObject> SidebarQuickAccess { get; } = new();
+
+    public ObservableCollection<FileSystemObject> SidebarDrives { get; } = new();
+
     public IReadOnlyList<FileSystemObject> SelectedFileSystemObjects => selectedFileSystemObjects;
 
 
@@ -466,6 +470,8 @@ internal class TabContentViewModel : ViewModel, IDisposable
 
         UpdateBreadcrumbs(TabPath);
 
+        RefreshSidebar();
+
         OpenCmd.Execute(TabPath);
 
     }
@@ -541,11 +547,30 @@ internal class TabContentViewModel : ViewModel, IDisposable
 
     private bool CanEjectDriveExecute(object p)
     {
-        if (CurrentFileSystemObject != null && !string.IsNullOrEmpty(CurrentFileSystemObject.Path))
+        if (p is string pathStr && !string.IsNullOrEmpty(pathStr))
+        {
+            return IsRemovableDrivePath(pathStr);
+        }
+
+        if (CurrentFileSystemObject != null && CurrentFileSystemObject.IsRemovableDrive)
             return true;
-        if (!string.IsNullOrEmpty(TabPath))
-            return true;
-        return selectedFileSystemObjects.Count > 0;
+
+        return selectedFileSystemObjects.Any(o => o.IsRemovableDrive);
+    }
+
+    private static bool IsRemovableDrivePath(string path)
+    {
+        try
+        {
+            var root = Path.GetPathRoot(path);
+            if (string.IsNullOrEmpty(root))
+                return false;
+            return new DriveInfo(root).DriveType == DriveType.Removable;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private bool HasSelectedOrCurrentItem(object p)
@@ -1035,17 +1060,17 @@ internal class TabContentViewModel : ViewModel, IDisposable
     private void OnEjectDriveCmdExecuted(object p)
     {
         string targetDrive = null;
-        if (CurrentFileSystemObject != null && !string.IsNullOrEmpty(CurrentFileSystemObject.Path))
+        if (p is string pathParam && !string.IsNullOrEmpty(pathParam))
+        {
+            targetDrive = Path.GetPathRoot(pathParam);
+        }
+        else if (CurrentFileSystemObject != null && CurrentFileSystemObject.IsRemovableDrive && !string.IsNullOrEmpty(CurrentFileSystemObject.Path))
         {
             targetDrive = Path.GetPathRoot(CurrentFileSystemObject.Path);
         }
-        else if (!string.IsNullOrEmpty(TabPath))
+        else if (selectedFileSystemObjects.FirstOrDefault(o => o.IsRemovableDrive) is { } removableSelected)
         {
-            targetDrive = Path.GetPathRoot(TabPath);
-        }
-        else if (selectedFileSystemObjects.Count > 0)
-        {
-            targetDrive = Path.GetPathRoot(selectedFileSystemObjects[0].Path);
+            targetDrive = Path.GetPathRoot(removableSelected.Path);
         }
 
         if (string.IsNullOrEmpty(targetDrive))
@@ -1658,7 +1683,9 @@ internal class TabContentViewModel : ViewModel, IDisposable
                                 Size = totalSize - freeSpace,
                                 Format = format,
                                 Type = driveType,
-                                IsDirectory = true
+                                IsDirectory = true,
+                                IsDrive = true,
+                                IsRemovableDrive = drive.DriveType == DriveType.Removable
                             });
                         }
                         catch
@@ -1735,6 +1762,7 @@ internal class TabContentViewModel : ViewModel, IDisposable
                             TotalSpace = NotApplicableSpaceSentinel,
                             FreeSpace = NotApplicableSpaceSentinel,
                             Format = directoryInfo.LastWriteTime.ToString(),
+                            Type = "תיקיית קבצים",
                             LastWriteTime = directoryInfo.LastWriteTime.ToString(),
                             RawLastWriteTime = directoryInfo.LastWriteTime,
                             IsDirectory = true
@@ -1773,6 +1801,7 @@ internal class TabContentViewModel : ViewModel, IDisposable
                             Path = file,
                             Size = fileInfo.Length,
                             Format = fileInfo.LastWriteTime.ToString(),
+                            Type = ShellManager.GetFileTypeDescription(fileInfo.Extension),
                             CreationTime = fileInfo.CreationTime.ToString(),
                             LastWriteTime = fileInfo.LastWriteTime.ToString(),
                             RawLastWriteTime = fileInfo.LastWriteTime,
@@ -2321,17 +2350,91 @@ internal class TabContentViewModel : ViewModel, IDisposable
         {
             SearchText = string.Empty;
             PreviewInfo.Clear();
+            RefreshSidebar();
             OpenCmd.Execute(null);
         });
     }
 
-    private void OnDeviceNotification(object sender, EventArgs e)
-
+    public void RefreshSidebar()
     {
+        SidebarQuickAccess.Clear();
+        SidebarDrives.Clear();
 
-        Application.Current?.Dispatcher?.InvokeAsync(() =>
-
+        void TryAddQuickFolder(string displayName, Environment.SpecialFolder folder)
         {
+            try
+            {
+                var folderPath = Environment.GetFolderPath(folder);
+                if (!string.IsNullOrEmpty(folderPath) && Directory.Exists(folderPath) && pathPolicy.CanNavigate(folderPath, out _))
+                {
+                    SidebarQuickAccess.Add(new FileSystemObject
+                    {
+                        Name = displayName,
+                        Path = folderPath,
+                        IsDirectory = true,
+                        Image = FolderManager.GetImageSource(folderPath, ItemState.Undefined)
+                    });
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        TryAddQuickFolder("שולחן העבודה", Environment.SpecialFolder.Desktop);
+        TryAddQuickFolder("מסמכים", Environment.SpecialFolder.MyDocuments);
+
+        try
+        {
+            var downloadsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+            if (Directory.Exists(downloadsPath) && pathPolicy.CanNavigate(downloadsPath, out _))
+            {
+                SidebarQuickAccess.Add(new FileSystemObject
+                {
+                    Name = "הורדות",
+                    Path = downloadsPath,
+                    IsDirectory = true,
+                    Image = FolderManager.GetImageSource(downloadsPath, ItemState.Undefined)
+                });
+            }
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            var drives = pathPolicy.GetAllowedDrives();
+            foreach (var drive in drives)
+            {
+                try
+                {
+                    var rootPath = drive.RootDirectory.FullName;
+                    SidebarDrives.Add(new FileSystemObject
+                    {
+                        Name = GetDriveLabel(drive),
+                        Path = drive.Name,
+                        IsDirectory = true,
+                        IsDrive = true,
+                        IsRemovableDrive = drive.DriveType == DriveType.Removable,
+                        Image = FolderManager.GetImageSource(rootPath, ItemState.Undefined)
+                    });
+                }
+                catch
+                {
+                }
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private void OnDeviceNotification(object sender, EventArgs e)
+    {
+        Application.Current?.Dispatcher?.InvokeAsync(() =>
+        {
+            RefreshSidebar();
 
             if (string.IsNullOrEmpty(TabPath))
 
