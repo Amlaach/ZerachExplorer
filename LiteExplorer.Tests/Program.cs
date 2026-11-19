@@ -587,6 +587,42 @@ public class Program
             if (File.Exists(corruptConfigPath)) { try { File.Delete(corruptConfigPath); } catch { } }
         }
 
+        // Preview Whitelist & Anti-Bypass Tests
+        {
+            var previewPolicy = new PathPolicy();
+            previewPolicy.AllowedDriveRoots.Add(@"D:\");
+            previewPolicy.AllowedExplicitDirectories.Add(@"D:\PreviewTest");
+
+            string docxFile = @"D:\PreviewTest\chiddush.docx";
+            string pdfFile = @"D:\PreviewTest\shiur.pdf";
+            string txtFile = @"D:\PreviewTest\notes.txt";
+            string jpgFile = @"D:\PreviewTest\photo.jpg";
+            string pngFile = @"D:\PreviewTest\image.png";
+            string jsonFile = @"D:\PreviewTest\config.json";
+            string exeFile = @"D:\PreviewTest\app.exe";
+
+            Assert(previewPolicy.CanPreviewFile(docxFile, out _), "CanPreviewFile allows whitelisted .docx document");
+            Assert(previewPolicy.CanPreviewFile(pdfFile, out _), "CanPreviewFile allows whitelisted .pdf document");
+            Assert(previewPolicy.CanPreviewFile(txtFile, out _), "CanPreviewFile allows whitelisted .txt document");
+            Assert(!previewPolicy.CanPreviewFile(jpgFile, out _), "CanPreviewFile blocks .jpg image");
+            Assert(!previewPolicy.CanPreviewFile(pngFile, out _), "CanPreviewFile blocks .png image");
+            Assert(!previewPolicy.CanPreviewFile(jsonFile, out _), "CanPreviewFile blocks .json config file");
+            Assert(!previewPolicy.CanPreviewFile(exeFile, out _), "CanPreviewFile blocks .exe executable");
+            Assert(!previewPolicy.CanPreviewFile(@"C:\Users\chiddush.docx", out _), "CanPreviewFile blocks .docx on system drive C:");
+
+            // Even if .jpg or .json were added to AllowedExtensions, preview whitelist still blocks them
+            previewPolicy.SetAllowedExtensions(new[] { ".docx", ".jpg", ".json" });
+            Assert(!previewPolicy.CanPreviewFile(jpgFile, out _), "CanPreviewFile still blocks .jpg even if added to AllowedExtensions");
+            Assert(!previewPolicy.CanPreviewFile(jsonFile, out _), "CanPreviewFile still blocks .json even if added to AllowedExtensions");
+
+            // Permissions.CanOpen = false blocks preview
+            previewPolicy.Permissions.CanOpen = false;
+            Assert(!previewPolicy.CanPreviewFile(docxFile, out _), "CanPreviewFile blocks .docx when CanOpen is false");
+
+            // Alternate Data Stream (ADS) blocked by TryNormalizePath
+            Assert(!previewPolicy.TryNormalizePath(docxFile + ":hidden.exe", out _, out _), "TryNormalizePath blocks NTFS Alternate Data Stream (ADS)");
+        }
+
         Console.WriteLine($"\nTest Results: {passed} passed, {failed} failed.");
         return failed == 0 ? 0 : 1;
     }

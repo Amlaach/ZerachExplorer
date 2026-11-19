@@ -14,6 +14,11 @@ public class PathPolicy : IPathPolicy
         ".doc", ".docx", ".xls", ".xlsx", ".pdf", ".txt", ".csv", ".one", ".onetoc2"
     };
 
+    private static readonly HashSet<string> PreviewWhitelistExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".doc", ".docx", ".xls", ".xlsx", ".pdf", ".txt", ".csv", ".one", ".onetoc2"
+    };
+
     private static readonly HashSet<string> ReservedDeviceNames = new(StringComparer.OrdinalIgnoreCase)
     {
         "CON", "PRN", "AUX", "NUL",
@@ -286,6 +291,12 @@ public class PathPolicy : IPathPolicy
         if (string.IsNullOrWhiteSpace(root) || root.Length < 2 || root[1] != ':')
         {
             reason = "הנתיב אינו משויך לכונן חוקי במערכת.";
+            return false;
+        }
+
+        if (full.IndexOf(':', 2) >= 0)
+        {
+            reason = "הנתיב מכיל זרם נתונים חלופי (ADS) שאינו מורשה.";
             return false;
         }
 
@@ -596,6 +607,21 @@ public class PathPolicy : IPathPolicy
         if (string.IsNullOrEmpty(ext) || !allowedExtensions.Contains(ext))
         {
             reason = $"סוג הקובץ '{ext}' אינו מאושר לפתיחה במערכת.";
+            return false;
+        }
+
+        return true;
+    }
+
+    public bool CanPreviewFile(string filePath, out string reason)
+    {
+        if (!CanOpenFile(filePath, out reason))
+            return false;
+
+        string ext = Path.GetExtension(filePath)?.ToLowerInvariant();
+        if (string.IsNullOrEmpty(ext) || !PreviewWhitelistExtensions.Contains(ext))
+        {
+            reason = $"תצוגה מקדימה חסומה עבור סוג הקובץ '{ext}' (מותר רק מסמכי וורד/לימוד מאושרים).";
             return false;
         }
 
