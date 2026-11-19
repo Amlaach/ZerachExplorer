@@ -22,6 +22,10 @@
              FlowDirection="RightToLeft"
              WindowStartupLocation="CenterScreen">
 
+    <ui:UiWindow.Resources>
+        <c:NonEmptyStringToVisibilityConverter x:Key="NonEmptyStringToVisibilityConverter" />
+    </ui:UiWindow.Resources>
+
     <ui:UiWindow.InputBindings>
         <KeyBinding Key="Q"
                     Command="{Binding CloseAppCmd}"
@@ -72,11 +76,7 @@
                         Margin="10,0"
                         VerticalAlignment="Center"
                         Background="#DCDFE4"
-                        Visibility="{Binding CurrentFileSystemObject.Path, Converter={StaticResource NonEmptyStringToVisibilityConverter}, FallbackValue=Collapsed}">
-                    <Border.Resources>
-                        <c:NonEmptyStringToVisibilityConverter x:Key="NonEmptyStringToVisibilityConverter" />
-                    </Border.Resources>
-                </Border>
+                        Visibility="{Binding CurrentFileSystemObject.Path, Converter={StaticResource NonEmptyStringToVisibilityConverter}, FallbackValue=Collapsed}" />
 
                 <TextBlock Grid.Column="2"
                            VerticalAlignment="Center"
