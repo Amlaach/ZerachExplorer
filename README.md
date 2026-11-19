@@ -39,8 +39,9 @@
 * **חסימת כונן המערכת (`C:`):** חסימה דינמית שאינה תלויה ברישיות (`c:\`, `C:\`, נתיב Windows דינמי).
 * **חסימת כונני "אוצר החוכמה":** זיהוי וחסימה לפי תווית כונן, תוכן פיזי (`otzar.exe`) ומזהי Volume Serial.
 * **שירות הרשאות מרכזי (`PathPolicy`):** אימות כל פעולת ניווט, פתיחה, העתקה, העברה, מחיקה, יצירת תיקייה ושינוי שם.
-* **הגנה מפני עקיפות (Bypass Protection):** חסימת Reparse Points / Junctions / Symlinks המצביעים למיקומים חסומים, חסימת UNC ונרמול מלא לפני כל בדיקה.
-* **פתיחת מסמכים מאושרים בלבד:** סיומות ברירת מחדל: `doc`, `docx`, `xls`, `xlsx`, `pdf`, `txt`, `csv`, `one`, `onetoc2` (ניתנות להתאמה במסך המנהל).
+* **הגנה מפני עקיפות (Bypass Protection):** חסימת Reparse Points / Junctions / Symlinks המצביעים למיקומים חסומים, חסימת UNC, חסימת **NTFS Alternate Data Streams (ADS)** ונרמול מלא לפני כל בדיקה.
+* **פתיחת מסמכים ותצוגה מקדימה מאושרים בלבד:** סיומות ברירת מחדל: `doc`, `docx`, `xls`, `xlsx`, `pdf`, `txt`, `csv`, `one`, `onetoc2` (נאכפות הן בפתיחה, הן בהעברה והן בתצוגה המקדימה `CanPreviewFile`, וניתנות להתאמה במסך המנהל).
+* **אימות מנהל, נעילת קיוסק ופרטיות:** הגנת סיסמת מנהל בתקן **PBKDF2 (SHA-256)**, יירוט יציאה ממצב קיוסק (`KioskController`), יומן ביקורת (`AuditService`) וניקוי לוח העתקה וקבצים זמניים בניתוק USB (`SessionService`).
 
 ---
 
@@ -70,6 +71,15 @@
 3. **הרשאות NTFS** לקריאה בלבד בכוננים מקומיים והגבלת מאקרו ביישומי Office.
 
 למידע מפורט ראו את מסמך האבטחה המלא: [SECURITY.md](SECURITY.md).
+
+---
+
+## 📦 הורדה והתקנה (Releases)
+
+הגרסה העדכנית (**v1.7.0**) זמינה להורדה ישירה בעמוד ה-[GitHub Releases](https://github.com/Amlaach/ZerachExplorer/releases/latest) וכוללת:
+* `LiteExplorer.exe` — קובץ הפעלה יחיד ועצמאי (`Single-File Self-Contained`) ל-Windows x64 ללא צורך בהתקנת .NET Runtime.
+* `ZerachExplorer-win-x64.zip` — ארכיון הפצה דחוס.
+* `checksums.sha256` — חתימות SHA-256 לאימות תקינות הקבצים.
 
 ---
 
