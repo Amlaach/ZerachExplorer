@@ -299,7 +299,7 @@ public class Program
 
         // Stage 4 - Section 5.1: Breadcrumbs Navigation
 
-        var testVm = new TabContentViewModel(policy);
+        using var testVm = new TabContentViewModel(policy, null, null, autoLoad: false);
 
         Assert(testVm.Breadcrumbs.Count == 1 && testVm.Breadcrumbs[0].Name == "בית", "Home path produces single 'בית' breadcrumb");
 

@@ -396,7 +396,13 @@ internal class TabContentViewModel : ViewModel, IDisposable
 
     #region Constructor & Disposal
 
+    [ActivatorUtilitiesConstructor]
     public TabContentViewModel(IPathPolicy? pathPolicy = null, IDriveEjectService? driveEjectService = null, IConfigurationService? configurationService = null)
+        : this(pathPolicy, driveEjectService, configurationService, autoLoad: true)
+    {
+    }
+
+    internal TabContentViewModel(IPathPolicy? pathPolicy, IDriveEjectService? driveEjectService, IConfigurationService? configurationService, bool autoLoad)
     {
 
         this.pathPolicy = pathPolicy ?? App.Container?.GetService<IPathPolicy>() ?? new PathPolicy();
@@ -472,7 +478,10 @@ internal class TabContentViewModel : ViewModel, IDisposable
 
         RefreshSidebar();
 
-        OpenCmd.Execute(TabPath);
+        if (autoLoad)
+        {
+            OpenCmd.Execute(TabPath);
+        }
 
     }
 
